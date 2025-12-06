@@ -42,7 +42,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'mysql.connector.django',
+
+    #third party
+    'rest_framework.authtoken',
     'rest_framework',
+
+    #local apps
     'accounts',
     'election',
 ]
@@ -129,5 +134,16 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-#authentication model
+#authentication model 
 AUTH_USER_MODEL = 'accounts.User'
+
+#rest framework settings
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+    ),
+}
