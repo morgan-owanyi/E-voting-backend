@@ -108,6 +108,12 @@ DATABASES = DATABASES = {
     }
 }
 
+CORS_ALLOWED_ORIGINS = [
+    "https://your-frontend-domain.onrender.com",
+    "http://localhost:3000"
+]
+
+
 
 
 
