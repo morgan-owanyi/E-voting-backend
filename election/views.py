@@ -150,7 +150,7 @@ class VotingViewSet(viewsets.ViewSet):
 
 Your One-Time Password (OTP) for voting is: {otp_obj.code}
 
-This OTP will expire in 10 minutes.
+IMPORTANT: This OTP can only be used once and will expire in 10 minutes.
 Election: {voter.election.title}
 Registration Number: {voter.registration_number}
 
@@ -266,3 +266,4 @@ KuraVote Team"""
             })
         
         return Response(results, status=status.HTTP_200_OK)
+

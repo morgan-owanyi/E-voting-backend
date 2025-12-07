@@ -95,6 +95,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.authtoken.models import Token
+from django.core.mail import send_mail
+from django.conf import settings
 from django.contrib.auth import authenticate
 from .serializers import UserSerializer, LoginSerializer, RegisterSerializer
 
@@ -105,6 +107,34 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+            
+            # Send welcome email to returning officers
+            if user.role == 'PRESIDING_OFFICER':
+                try:
+                    email_body = f"""Hello {user.username},
+
+Welcome to KuraVote!
+
+Your account as a Returning Officer has been successfully created.
+
+Email: {user.email}
+Role: Returning Officer
+
+You can now log in to the system to manage elections and monitor voting activities.
+
+Thank you,
+KuraVote Team"""
+                    
+                    send_mail(
+                        subject='Welcome to KuraVote - Returning Officer Account Created',
+                        message=email_body,
+                        from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@kuravote.com'),
+                        recipient_list=[user.email],
+                        fail_silently=True
+                    )
+                except Exception as e:
+                    pass  # Don't fail registration if email fails
+            
             token, created = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
@@ -150,3 +180,4 @@ class UserDetailView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
