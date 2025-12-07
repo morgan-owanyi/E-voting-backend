@@ -267,3 +267,187 @@ KuraVote Team"""
         
         return Response(results, status=status.HTTP_200_OK)
 
+
+    @action(detail=False, methods=['get'])
+    def export_results_csv(self, request):
+        import csv
+        from django.http import HttpResponse
+        
+        election_id = request.query_params.get('election')
+        election = Election.objects.get(id=election_id)
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="results_{election.title}_{timezone.now().strftime("%Y%m%d")}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Position', 'Candidate', 'Votes', 'Percentage'])
+        
+        positions = Position.objects.filter(election_id=election_id)
+        
+        for position in positions:
+            candidates = Candidate.objects.filter(
+                position=position,
+                status='approved'
+            ).annotate(vote_count=Count('votes_received'))
+            
+            total_votes = sum(c.vote_count for c in candidates)
+            
+            for candidate in candidates:
+                percentage = (candidate.vote_count / total_votes * 100) if total_votes > 0 else 0
+                writer.writerow([
+                    position.title,
+                    candidate.name,
+                    candidate.vote_count,
+                    f"{percentage:.2f}%"
+                ])
+        
+        return response
+
+    @action(detail=False, methods=['get'])
+    def export_results_pdf(self, request):
+        from django.http import HttpResponse
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import inch
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from io import BytesIO
+        
+        election_id = request.query_params.get('election')
+        election = Election.objects.get(id=election_id)
+        
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Title
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#1a237e'),
+            spaceAfter=30,
+            alignment=1
+        )
+        elements.append(Paragraph(f"Election Results: {election.title}", title_style))
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Election info
+        info_style = styles['Normal']
+        elements.append(Paragraph(f"<b>Generated:</b> {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}", info_style))
+        elements.append(Spacer(1, 0.3*inch))
+        
+        positions = Position.objects.filter(election_id=election_id)
+        
+        for position in positions:
+            # Position title
+            pos_style = ParagraphStyle('PositionTitle', parent=styles['Heading2'], textColor=colors.HexColor('#283593'))
+            elements.append(Paragraph(position.title, pos_style))
+            elements.append(Spacer(1, 0.2*inch))
+            
+            candidates = Candidate.objects.filter(
+                position=position,
+                status='approved'
+            ).annotate(vote_count=Count('votes_received')).order_by('-vote_count')
+            
+            total_votes = sum(c.vote_count for c in candidates)
+            
+            # Results table
+            data = [['Rank', 'Candidate', 'Votes', 'Percentage']]
+            for idx, candidate in enumerate(candidates, 1):
+                percentage = (candidate.vote_count / total_votes * 100) if total_votes > 0 else 0
+                data.append([
+                    str(idx),
+                    candidate.name,
+                    str(candidate.vote_count),
+                    f"{percentage:.2f}%"
+                ])
+            
+            table = Table(data, colWidths=[0.7*inch, 3*inch, 1*inch, 1.3*inch])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3f51b5')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('ALIGN', (2, 0), (3, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ]))
+            
+            elements.append(table)
+            elements.append(Spacer(1, 0.4*inch))
+        
+        doc.build(elements)
+        buffer.seek(0)
+        
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="results_{election.title}_{timezone.now().strftime("%Y%m%d")}.pdf"'
+        return response
+
+    @action(detail=False, methods=['get'])
+    def export_turnout_csv(self, request):
+        import csv
+        from django.http import HttpResponse
+        
+        election_id = request.query_params.get('election')
+        election = Election.objects.get(id=election_id)
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="turnout_{election.title}_{timezone.now().strftime("%Y%m%d")}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Metric', 'Value'])
+        
+        total_voters = Voter.objects.filter(election_id=election_id).count()
+        voted_count = Voter.objects.filter(election_id=election_id, has_voted=True).count()
+        turnout_rate = (voted_count / total_voters * 100) if total_voters > 0 else 0
+        
+        writer.writerow(['Total Registered Voters', total_voters])
+        writer.writerow(['Total Votes Cast', voted_count])
+        writer.writerow(['Voters Yet to Vote', total_voters - voted_count])
+        writer.writerow(['Turnout Rate', f"{turnout_rate:.2f}%"])
+        writer.writerow([''])
+        
+        # Voting timeline
+        writer.writerow(['Registration Number', 'Email', 'Voted', 'Voted At'])
+        voters = Voter.objects.filter(election_id=election_id).order_by('-voted_at')
+        for voter in voters:
+            writer.writerow([
+                voter.registration_number,
+                voter.email or 'N/A',
+                'Yes' if voter.has_voted else 'No',
+                voter.voted_at.strftime('%Y-%m-%d %H:%M:%S') if voter.voted_at else 'N/A'
+            ])
+        
+        return response
+
+    @action(detail=False, methods=['get'])
+    def export_audit_log_csv(self, request):
+        import csv
+        from django.http import HttpResponse
+        from .models import AuditLog
+        
+        election_id = request.query_params.get('election')
+        election = Election.objects.get(id=election_id)
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="audit_log_{election.title}_{timezone.now().strftime("%Y%m%d")}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Timestamp', 'Action', 'User', 'Voter Reg No', 'Details', 'IP Address'])
+        
+        logs = AuditLog.objects.filter(election_id=election_id)
+        for log in logs:
+            writer.writerow([
+                log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                log.get_action_display(),
+                log.user.username if log.user else 'System',
+                log.voter_reg_no or 'N/A',
+                log.details,
+                log.ip_address or 'N/A'
+            ])
+        
+        return response
