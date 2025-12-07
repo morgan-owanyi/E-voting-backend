@@ -1,6 +1,6 @@
 # accounts/urls.py
 from django.urls import path
-from .views import RegisterView, RequestOTPView, VerifyOTPView
+from .views import RegisterView, RequestOTPView, VerifyOTPView, LoginView
 from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [
@@ -8,4 +8,6 @@ urlpatterns = [
     path("request-otp/", RequestOTPView.as_view(), name="request-otp"),
     path("verify-otp/", VerifyOTPView.as_view(), name="verify-otp"),
     path("token/", obtain_auth_token, name="api-token-auth"),  # optional token auth
+    path('login/', LoginView.as_view(), name='token_obtain_pair'),
+
 ]

@@ -1,16 +1,26 @@
 # accounts/views.py
 from rest_framework import generics, status
 from rest_framework.response import Response
-from django.contrib.auth import get_user_model
-from .serializers import UserRegisterSerializer, EmailOTPRequestSerializer, EmailOTPVerifySerializer
+from rest_framework.views import APIView
+from django.contrib.auth import get_user_model, authenticate
+from .serializers import UserRegisterSerializer, EmailOTPRequestSerializer, EmailOTPVerifySerializer, LoginSerializer
 from .models import EmailOTP
 from django.shortcuts import get_object_or_404
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+
 
 User = get_user_model()
 
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegisterSerializer
     permission_classes = []  # allow anyone to register
+
+    def register(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
 
 class RequestOTPView(generics.GenericAPIView):
     serializer_class = EmailOTPRequestSerializer
@@ -43,3 +53,40 @@ class VerifyOTPView(generics.GenericAPIView):
             otp.user.save()
         return Response({"detail":"Email verified."}, status=status.HTTP_200_OK)
 # In production, we shall also want to send the OTP code via email in RequestOTPView.
+
+
+class LoginView(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        password = request.data.get("password")
+
+        user = authenticate(request, email=email, password=password)
+
+        if user is None:
+            return Response(
+                {"message": "Invalid credentials"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            },
+            status=status.HTTP_200_OK,
+        )
+    
+
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        # Add custom claims if needed
+        token['email'] = user.email
+        token['role'] = user.role
+        return token
+
+class LoginView(TokenObtainPairView):
+    serializer_class = MyTokenObtainPairSerializer
+

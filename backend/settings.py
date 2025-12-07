@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     #third party
     'rest_framework.authtoken',
     'rest_framework',
+    'rest_framework_simplejwt',
 
     #local apps
     'accounts',
@@ -150,8 +151,17 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ),
 }
+# Custom authentication backend
+AUTHENTICATION_BACKENDS = [
+    'accounts.auth_backend.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+AUTH_USER_MODEL = 'accounts.User'
+
