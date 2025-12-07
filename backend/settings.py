@@ -109,12 +109,12 @@ DATABASES = DATABASES = {
 }
 
 CORS_ALLOWED_ORIGINS = [
-    "https://e-voting-frontend-tl80.onrender.com/",
+    "https://e-voting-frontend-tl80.onrender.com",
     "http://localhost:3000"
 ]
 
 
-
+CORS_ALLOW_CREDENTIALS = True
 
 
 
