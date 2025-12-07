@@ -13,8 +13,13 @@ import random
 class ElectionViewSet(viewsets.ModelViewSet):
     queryset = Election.objects.all()
     serializer_class = ElectionSerializer
-    permission_classes = [IsAuthenticated]
 
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
+    
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
@@ -120,25 +125,59 @@ class VotingViewSet(viewsets.ViewSet):
     
     @action(detail=False, methods=['post'])
     def request_otp(self, request):
+        from django.core.mail import send_mail
+        from django.conf import settings
+        
         reg_no = request.data.get('regNo')
         election_id = request.data.get('election')
-        
+
         try:
             voter = Voter.objects.get(registration_number=reg_no, election_id=election_id)
-            
+
             if voter.has_voted:
                 return Response({'error': 'You have already voted'}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Generate OTP
-            otp_code = ''.join(str(random.randint(0, 9)) for _ in range(6))
+            if not voter.email:
+                return Response({'error': 'No email associated with this voter'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Generate or retrieve OTP using EmailOTP model
+            EmailOTP.objects.filter(email=voter.email, used=False).update(used=True)
+            otp_obj = EmailOTP.create_otp(email=voter.email, length=6, expiry_seconds=600)
             
-            # In production, send OTP via email/SMS
-            # For now, return it in response (REMOVE IN PRODUCTION)
-            return Response({
-                'message': 'OTP sent successfully',
-                'otp': otp_code  # REMOVE IN PRODUCTION
-            }, status=status.HTTP_200_OK)
-            
+            # Send OTP via email
+            try:
+                email_body = f"""Hello,
+
+Your One-Time Password (OTP) for voting is: {otp_obj.code}
+
+This OTP will expire in 10 minutes.
+Election: {voter.election.title}
+Registration Number: {voter.registration_number}
+
+Please do not share this OTP with anyone.
+
+Thank you,
+KuraVote Team"""
+                
+                send_mail(
+                    subject=f'Your Voting OTP - {voter.election.title}',
+                    message=email_body,
+                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@kuravote.com'),
+                    recipient_list=[voter.email],
+                    fail_silently=False,
+                )
+                
+                return Response({
+                    'message': 'OTP sent successfully to your registered email',
+                    'email_hint': voter.email[:3] + '***' + voter.email[voter.email.index('@'):]
+                }, status=status.HTTP_200_OK)
+                
+            except Exception as e:
+                return Response({
+                    'error': f'Failed to send OTP email: {str(e)}',
+                    'otp': otp_obj.code
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         except Voter.DoesNotExist:
             return Response({'error': 'Voter not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -146,13 +185,31 @@ class VotingViewSet(viewsets.ViewSet):
     def verify_otp(self, request):
         reg_no = request.data.get('regNo')
         otp = request.data.get('otp')
-        
-        # In production, verify OTP from database
-        # For now, accept any 6-digit code
-        if len(otp) == 6 and otp.isdigit():
-            return Response({'message': 'OTP verified successfully'}, status=status.HTTP_200_OK)
-        
-        return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
+        election_id = request.data.get('election')
+
+        try:
+            voter = Voter.objects.get(registration_number=reg_no, election_id=election_id)
+            
+            if not voter.email:
+                return Response({'error': 'No email associated with this voter'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Verify OTP from database
+            try:
+                otp_obj = EmailOTP.objects.get(email=voter.email, code=otp, used=False)
+                
+                if not otp_obj.is_valid():
+                    return Response({'error': 'OTP has expired'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Mark OTP as used
+                otp_obj.mark_used()
+                
+                return Response({'message': 'OTP verified successfully'}, status=status.HTTP_200_OK)
+                
+            except EmailOTP.DoesNotExist:
+                return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Voter.DoesNotExist:
+            return Response({'error': 'Voter not found'}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=False, methods=['post'])
     def cast(self, request):
