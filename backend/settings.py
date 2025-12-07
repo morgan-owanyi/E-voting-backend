@@ -100,11 +100,11 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': '<your_db_name>',
-        'USER': '<your_db_user>',
-        'PASSWORD': '<your_db_password>',
-        'HOST': '<your_db_host>',
-        'PORT': '<your_db_port>',
+        'NAME': 'kuravote_db',
+        'USER': 'kuravote_db_user',
+        'PASSWORD': 'VKQMP2kE8GG3n8ellcu23iObxa8JFOyw',
+        'HOST': 'dpg-d4qk4h63jp1c739ip7ag-a.frankfurt-postgres.render.com',
+        'PORT': '5432',
     }
 }
 
