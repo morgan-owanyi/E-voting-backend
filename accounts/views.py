@@ -121,8 +121,8 @@ class LoginView(APIView):
             email = serializer.validated_data['email']
             password = serializer.validated_data['password']
             
-            # Authenticate user
-            user = authenticate(username=email, password=password)
+            # Authenticate user - EmailBackend expects 'email' parameter
+            user = authenticate(request=request, email=email, password=password)
             
             if user:
                 token, created = Token.objects.get_or_create(user=user)
