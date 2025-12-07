@@ -42,6 +42,7 @@ ALLOWED_HOSTS = ['*']  # For testing, later lock this to your Render URL
 # Application definition
 
 INSTALLED_APPS = [
+    'anymail',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -157,16 +158,16 @@ STATIC_URL = 'static/'
 
 # Email Configuration
 # For development: use console backend (prints emails to console)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')  # Use console for dev, anymail.backends.mailgun.EmailBackend for production
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.mailgun.org')
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'your-email@gmail.com'  # Set via environment variable
-EMAIL_HOST_PASSWORD = 'your-app-password'  # Set via environment variable
+EMAIL_HOST_USER = os.environ.get('MAILGUN_SMTP_LOGIN', os.environ.get('MAILGUN_DOMAIN', ''))
+EMAIL_HOST_PASSWORD = os.environ.get('MAILGUN_SMTP_PASSWORD', os.environ.get('MAILGUN_API_KEY', ''))
 
 # For production with Gmail (uncomment and configure):
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')  # Use console for dev, anymail.backends.mailgun.EmailBackend for production
+# EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.mailgun.org')
 # EMAIL_PORT = 587
 # EMAIL_USE_TLS = True
 # EMAIL_HOST_USER = 'your-email@gmail.com'
@@ -198,3 +199,10 @@ AUTHENTICATION_BACKENDS = [
 
 AUTH_USER_MODEL = 'accounts.User'
 
+
+
+# Anymail (Mailgun)
+ANYMAIL = {
+    'MAILGUN_API_KEY': os.environ.get('MAILGUN_API_KEY', ''),
+    'MAILGUN_SENDER_DOMAIN': os.environ.get('MAILGUN_DOMAIN', ''),
+}
