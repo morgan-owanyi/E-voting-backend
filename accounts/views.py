@@ -106,21 +106,28 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
+            # Capture plain password before hashing
+            plain_password = request.data.get('password', '')
             user = serializer.save()
             
             # Send welcome email to returning officers
             if user.role == 'PRESIDING_OFFICER':
                 try:
-                    email_body = f"""Hello {user.username},
+                    email_body = f"""Hello {user.first_name or user.username},
 
 Welcome to KuraVote!
 
 Your account as a Returning Officer has been successfully created.
 
+Login Credentials:
 Email: {user.email}
+Password: {plain_password}
+
 Role: Returning Officer
 
-You can now log in to the system to manage elections and monitor voting activities.
+You can now log in to the system at https://e-voting-frontend-tl80.onrender.com to manage elections and monitor voting activities.
+
+Please change your password after your first login for security.
 
 Thank you,
 KuraVote Team"""
@@ -180,4 +187,5 @@ class UserDetailView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
 
