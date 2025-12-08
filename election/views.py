@@ -140,7 +140,8 @@ class CandidateViewSet(viewsets.ModelViewSet):
 class VotingViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
     
-    @action(detail=False, methods=['post'])    def request_otp(self, request):
+    @action(detail=False, methods=['post'])
+    def request_otp(self, request):
         from django.core.mail import send_mail
         from django.conf import settings
         import threading
