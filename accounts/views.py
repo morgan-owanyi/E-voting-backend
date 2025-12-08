@@ -115,7 +115,7 @@ class RegisterView(APIView):
                 import threading
                 def send_email_async():
                     try:
-                    email_body = f"""Hello {user.first_name or user.username},
+                        email_body = f"""Hello {user.first_name or user.username},
 
 Welcome to KuraVote!
 
@@ -134,7 +134,13 @@ Please change your password after your first login for security.
 Thank you,
 KuraVote Team"""
                     
-                    send_mail(\n                        subject='Welcome to KuraVote - Returning Officer Account Created',\n                        message=email_body,\n                        from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@kuravote.com'),\n                        recipient_list=[user.email],\n                        fail_silently=True,\n                        timeout=10  # Add timeout to prevent hanging\n                    )
+                        send_mail(
+                            subject='Welcome to KuraVote - Returning Officer Account Created',
+                            message=email_body,
+                            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@kuravote.com'),
+                            recipient_list=[user.email],
+                            fail_silently=True
+                        )
                     except Exception:
                         pass  # Don't fail registration if email fails
                 # Send email in background thread to avoid blocking
@@ -185,6 +191,8 @@ class UserDetailView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
+
 
 
 
