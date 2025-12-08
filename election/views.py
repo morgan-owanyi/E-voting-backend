@@ -104,7 +104,14 @@ class CandidateViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def apply(self, request):
-        serializer = self.get_serializer(data=request.data)
+        # Auto-populate name and email from logged-in user
+        data = request.data.copy()
+        if 'name' not in data or not data.get('name'):
+            data['name'] = f'{request.user.first_name} {request.user.last_name}'.strip() or request.user.username
+        if 'email' not in data or not data.get('email'):
+            data['email'] = request.user.email
+        
+        serializer = self.get_serializer(data=data)
         if serializer.is_valid():
             serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
