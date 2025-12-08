@@ -131,6 +131,7 @@ class CandidateViewSet(viewsets.ModelViewSet):
 
 
 class VotingViewSet(viewsets.ViewSet):
+    permission_classes = [AllowAny]
     
     @action(detail=False, methods=['post'])
     def request_otp(self, request):
