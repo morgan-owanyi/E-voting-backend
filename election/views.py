@@ -140,11 +140,12 @@ class CandidateViewSet(viewsets.ModelViewSet):
 class VotingViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
     
-    @action(detail=False, methods=['post'])
-    def request_otp(self, request):
+    @action(detail=False, methods=['post'])    def request_otp(self, request):
         from django.core.mail import send_mail
         from django.conf import settings
-        
+        import threading
+        import time
+
         reg_no = request.data.get('regNo')
         election_id = request.data.get('election')
 
@@ -156,14 +157,17 @@ class VotingViewSet(viewsets.ViewSet):
             
             if not voter.email:
                 return Response({'error': 'No email associated with this voter'}, status=status.HTTP_400_BAD_REQUEST)
-
+            
             # Generate or retrieve OTP using EmailOTP model
             EmailOTP.objects.filter(email=voter.email, used=False).update(used=True)
             otp_obj = EmailOTP.create_otp(email=voter.email, length=6, expiry_seconds=600)
+
+            # Try to send OTP via email with timeout
+            email_sent = {'success': False, 'error': None}
             
-            # Send OTP via email
-            try:
-                email_body = f"""Hello,
+            def send_email():
+                try:
+                    email_body = f"""Hello,
 
 Your One-Time Password (OTP) for voting is: {otp_obj.code}
 
@@ -175,28 +179,42 @@ Please do not share this OTP with anyone.
 
 Thank you,
 KuraVote Team"""
-                
-                send_mail(
-                    subject=f'Your Voting OTP - {voter.election.title}',
-                    message=email_body,
-                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@kuravote.com'),
-                    recipient_list=[voter.email],
-                    fail_silently=False,
-                )
-                
+
+                    send_mail(
+                        subject=f'Your Voting OTP - {voter.election.title}',
+                        message=email_body,
+                        from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@kuravote.com'),
+                        recipient_list=[voter.email],
+                        fail_silently=False,
+                    )
+                    email_sent['success'] = True
+                except Exception as e:
+                    email_sent['error'] = str(e)
+
+            # Start email sending in thread with timeout
+            email_thread = threading.Thread(target=send_email)
+            email_thread.daemon = True
+            email_thread.start()
+            email_thread.join(timeout=5.0)  # 5 second timeout
+
+            if email_sent['success']:
                 return Response({
                     'message': 'OTP sent successfully to your registered email',
                     'email_hint': voter.email[:3] + '***' + voter.email[voter.email.index('@'):]
                 }, status=status.HTTP_200_OK)
-                
-            except Exception as e:
+            else:
+                # Email failed or timed out - return OTP in response
                 return Response({
-                    'error': f'Failed to send OTP email: {str(e)}',
-                    'otp': otp_obj.code
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    'message': 'OTP generated successfully',
+                    'otp': otp_obj.code,
+                    'note': 'Email service unavailable. Please use the OTP code displayed on screen.',
+                    'email_failed': True
+                }, status=status.HTTP_200_OK)
 
         except Voter.DoesNotExist:
             return Response({'error': 'Voter not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
 
     @action(detail=False, methods=['post'])
     def verify_otp(self, request):
