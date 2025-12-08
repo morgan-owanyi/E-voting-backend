@@ -51,10 +51,19 @@ class VoterViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Election ID is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         voters = []
-        for reg_no in voters_data:
+        for voter_data in voters_data:
+            # Handle both old format (string) and new format (dict with email)
+            if isinstance(voter_data, dict):
+                reg_no = voter_data.get('registration_number')
+                email = voter_data.get('email', '')
+            else:
+                reg_no = voter_data
+                email = ''
+            
             voters.append(Voter(
                 election_id=election_id,
-                registration_number=reg_no
+                registration_number=reg_no,
+                email=email
             ))
         
         Voter.objects.bulk_create(voters, ignore_conflicts=True)
