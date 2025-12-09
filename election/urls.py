@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ElectionViewSet, PositionViewSet, VoterViewSet, CandidateViewSet, VotingViewSet
+from .views import ElectionViewSet, PositionViewSet, VoterViewSet, CandidateViewSet, VotingViewSet, ElectionList, ElectionDetail
+from .views import *
 
 router = DefaultRouter()
 router.register(r'elections', ElectionViewSet, basename='election')
@@ -11,4 +12,7 @@ router.register(r'voting', VotingViewSet, basename='voting')
 
 urlpatterns = [
     path('', include(router.urls)),
+     path('', ElectionList.as_view()),
+    path('<int:id>/', ElectionDetail.as_view()),
 ]
+
