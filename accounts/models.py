@@ -39,7 +39,7 @@ class EmailOTP(models.Model):
     """
     Simple Email OTP model — will be used for verifying voters.
     """
-    email = models.EmailField(unique=True)#emails must be unique
+    email = models.EmailField()#emails must be unique
     code = models.CharField(max_length=10)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()

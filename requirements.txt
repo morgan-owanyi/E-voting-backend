@@ -14,3 +14,5 @@ PyMySQL==1.1.2
 python-dotenv==1.2.1
 sqlparse==0.5.4
 tzdata==2025.2
+django-anymail==13.1
+reportlab==4.4.5

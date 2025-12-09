@@ -83,3 +83,29 @@ class Vote(models.Model):
 
     def __str__(self):
         return f"Vote for {self.candidate.name} by {self.voter.registration_number}"
+
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        ('VOTE_CAST', 'Vote Cast'),
+        ('VOTER_ADDED', 'Voter Added'),
+        ('CANDIDATE_APPROVED', 'Candidate Approved'),
+        ('CANDIDATE_REJECTED', 'Candidate Rejected'),
+        ('ELECTION_CREATED', 'Election Created'),
+        ('POSITION_CREATED', 'Position Created'),
+        ('OTP_REQUESTED', 'OTP Requested'),
+        ('OTP_VERIFIED', 'OTP Verified'),
+    ]
+    
+    election = models.ForeignKey(Election, on_delete=models.CASCADE, related_name='audit_logs', null=True, blank=True)
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    voter_reg_no = models.CharField(max_length=100, blank=True)
+    details = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(default=timezone.now)
+    
+    class Meta:
+        ordering = ['-timestamp']
+    
+    def __str__(self):
+        return f"{self.action} at {self.timestamp}"
